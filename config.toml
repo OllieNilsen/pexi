@@ -1,0 +1,102 @@
+# config.toml
+# Keep this file honest: reflect what exists today.
+# Add new sections only when they become real.
+
+version = 1
+
+[repo]
+name = "pexi"
+# Use relative paths in config for portability; your local root is /Users/on/p/pexi
+root = "."
+local_root_abs = "/Users/on/p/pexi"
+stage = "spikes"
+default_branch = "main"
+
+[paths]
+docs_dir = "docs"
+hla_doc = "docs/hla.md"
+spikes_dir = "spikes"
+
+# Known module locations (current tree)
+pep_daemon_dir = "pep-daemon"
+pep_daemon_manifest = "pep-daemon/Cargo.toml"
+validate_spike_script = "spikes/validate_spike.sh"
+
+vm_node_fetch_dir = "spikes/vm-node-fetch"
+vm_node_fetch_proxy = "spikes/vm-node-fetch/fetch_proxy.js"
+vm_node_fetch_bootstrap = "spikes/vm-node-fetch/bootstrap.sh"
+
+[ci]
+# No CI yet. When you add GitHub Actions, flip provider and add workflow paths.
+provider = "none"
+workflow_paths = []
+
+[guardrails]
+small_iterations = true
+requires_human_review_between_iterations = true
+types_first = true
+tests_first = true
+
+# Architecture direction (do not accidentally contradict) [[11]]
+vm_no_ip_networking_direction = true
+pep_only_egress_direction = true
+deny_by_default_policy_direction = true
+append_only_audit_jsonl_direction = true
+
+[commands]
+# Commands are defined as argv-style arrays.
+# These are "best effort" and should remain valid even if a spike has zero tests.
+
+[commands.spike_validate]
+description = "Run the repo's spike validation script (if present/executable)."
+steps = [
+  ["bash", "spikes/validate_spike.sh"]
+]
+
+[commands.pep_daemon_fmt]
+description = "Format Rust code in pep-daemon."
+steps = [
+  ["cargo", "fmt", "--manifest-path", "pep-daemon/Cargo.toml", "--all"]
+]
+
+[commands.pep_daemon_clippy]
+description = "Clippy for pep-daemon (fails on warnings)."
+steps = [
+  ["cargo", "clippy", "--manifest-path", "pep-daemon/Cargo.toml", "--all-targets", "--all-features", "--", "-D", "warnings"]
+]
+
+[commands.pep_daemon_test]
+description = "Run tests for pep-daemon (may be none yet)."
+steps = [
+  ["cargo", "test", "--manifest-path", "pep-daemon/Cargo.toml", "--all"]
+]
+
+[commands.pep_daemon_check]
+description = "Convenience: format + clippy + test for pep-daemon."
+steps = [
+  ["cargo", "fmt", "--manifest-path", "pep-daemon/Cargo.toml", "--all"],
+  ["cargo", "clippy", "--manifest-path", "pep-daemon/Cargo.toml", "--all-targets", "--all-features", "--", "-D", "warnings"],
+  ["cargo", "test", "--manifest-path", "pep-daemon/Cargo.toml", "--all"]
+]
+
+[commands.vm_node_fetch_bootstrap]
+description = "Bootstrap the vm-node-fetch spike (best-effort)."
+steps = [
+  ["bash", "spikes/vm-node-fetch/bootstrap.sh"]
+]
+
+[commands.vm_node_fetch_run]
+description = "Run the Node fetch proxy spike (manual stop)."
+steps = [
+  ["node", "spikes/vm-node-fetch/fetch_proxy.js"]
+]
+
+[rust]
+# Keep minimal until we productize.
+edition_hint = "2024"
+unsafe_policy = "avoid"
+
+[notes]
+# Intentional placeholders kept minimal.
+planned_ci_provider = "github-actions"
+planned_ci_checks = ["format", "clippy", "test"]
