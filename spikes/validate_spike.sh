@@ -10,7 +10,7 @@ echo "  ./target/debug/avf-vsock-host vsock-stub --cid 2 --port 4041"
 
 echo "Boot VM (host terminal):"
 echo "  ./target/debug/avf-vsock-host boot-vm \\"
-echo "    --swift-script ./avf_runner.swift \\"
+echo "    --swift-script ./avf_runner \\"
 echo "    --kernel /path/to/vmlinuz \\"
 echo "    --initrd /path/to/initrd \\"
 echo "    --disk /path/to/disk.img \\"

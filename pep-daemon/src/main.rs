@@ -928,18 +928,18 @@ fn run_boot_vm(
         )));
     }
 
-    let mut cmd = if swift_script
+    if swift_script
         .extension()
         .and_then(|ext| ext.to_str())
         .map(|ext| ext == "swift")
         .unwrap_or(false)
     {
-        let mut command = Command::new("swift");
-        command.arg(&swift_script);
-        command
-    } else {
-        Command::new(&swift_script)
-    };
+        return Err(StubError::Io(io::Error::new(
+            io::ErrorKind::InvalidInput,
+            "swift runner must be a compiled binary, not a .swift script",
+        )));
+    }
+    let mut cmd = Command::new(&swift_script);
     if let Some(kernel) = kernel {
         cmd.arg("--kernel").arg(kernel);
     }
