@@ -26,6 +26,9 @@ vm_node_fetch_dir = "spikes/vm-node-fetch"
 vm_node_fetch_proxy = "spikes/vm-node-fetch/fetch_proxy.js"
 vm_node_fetch_bootstrap = "spikes/vm-node-fetch/bootstrap.sh"
 
+browser_intercept_dir = "spikes/browser-intercept"
+browser_intercept_package = "spikes/browser-intercept/package.json"
+
 [scripts]
 avf_runner_build = "pep-daemon/build_avf_runner.sh"
 
@@ -92,6 +95,18 @@ steps = [
 description = "Run the Node fetch proxy spike (manual stop)."
 steps = [
   ["node", "spikes/vm-node-fetch/fetch_proxy.js"]
+]
+
+[commands.browser_intercept_install]
+description = "Install dependencies for browser-intercept spike."
+steps = [
+  ["npm", "install"]
+]
+
+[commands.browser_intercept_run]
+description = "Run the browser-intercept Playwright spike."
+steps = [
+  ["npm", "run", "run"]
 ]
 
 [commands.avf_runner_build]

@@ -1,0 +1,22 @@
+{
+  "name": "browser-intercept",
+  "version": "1.0.0",
+  "description": "Playwright CDP interception spike for A2 (TypeScript)",
+  "private": true,
+  "main": "dist/run.js",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "run": "npm run build && node dist/run.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "dependencies": {
+    "playwright": "^1.58.1"
+  },
+  "devDependencies": {
+    "@types/node": "^25.2.0",
+    "typescript": "^5.9.3"
+  }
+}

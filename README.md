@@ -68,6 +68,17 @@ export PEP_TEST_ALLOW_URL="https://example.com"
 export PEP_TEST_DENY_URL="https://example.org"
 ```
 
+### Reproducible A2 verification (browser interception)
+The VM image must already contain Node + Playwright + Chromium (no IP networking
+means you cannot install these at runtime). The cloud-init flow writes output to:
+`/workspace/browser-intercept.out`.
+
+Default allow/deny URLs (set by cloud-init):
+```
+https://google.com
+https://youtube.com
+```
+
 ## PEP environment configuration
 These environment variables control the PEP HTTP stub:
 
