@@ -2,7 +2,10 @@ const { spawnSync } = require("child_process");
 
 const DEFAULT_CID = process.env.PEP_VSOCK_CID || "2";
 const DEFAULT_PORT = process.env.PEP_VSOCK_PORT || "4040";
-const CLIENT_BIN = process.env.PEP_VSOCK_CLIENT || "./avf-vsock-host";
+const PROJECT_ROOT = process.env.PEP_PROJECT_ROOT || "/Users/on/p/pexi";
+const CLIENT_BIN =
+  process.env.PEP_VSOCK_CLIENT ||
+  `${PROJECT_ROOT}/pep-daemon/target/debug/avf-vsock-host`;
 
 function normalizeHeaders(headers) {
   if (!headers) return [];
@@ -46,8 +49,9 @@ async function fetchProxy(url, options = {}) {
 
   const response = JSON.parse(payload.stdout);
   if (response.error) {
+    const code = response.error.code || "unknown_error";
     const message = response.error.message || "unknown error";
-    throw new Error(`host error: ${message}`);
+    throw new Error(`host error (${code}): ${message}`);
   }
 
   const responseBody = response.body_base64

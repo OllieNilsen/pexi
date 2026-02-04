@@ -18,7 +18,7 @@ echo "    --console-log /path/to/console.log \\"
 echo "    --status-log /path/to/status.log \\"
 echo "    --vsock-port 4040 \\"
 echo "    --bridge-port 4041 \\"
-echo "    --shared-dir /workspace"
+echo "    --shared-dir /Users/on/p/pexi"
 
 echo "Inside VM:"
 echo "  /Users/on/p/pexi/spikes/vm-node-fetch/bootstrap.sh"

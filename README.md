@@ -54,6 +54,13 @@ cargo run --manifest-path "pep-daemon/Cargo.toml" -- boot-vm \
 /Users/on/p/pexi/spikes/vm-node-fetch/bootstrap.sh
 ```
 
+### Reproducible A1b verification
+Set allow/deny URLs so the VM bootstrap exercises both code paths:
+```
+export PEP_TEST_ALLOW_URL="https://example.com"
+export PEP_TEST_DENY_URL="https://example.org"
+```
+
 ## PEP environment configuration
 These environment variables control the PEP HTTP stub:
 

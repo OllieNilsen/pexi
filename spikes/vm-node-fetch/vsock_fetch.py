@@ -1,13 +1,14 @@
 #!/usr/bin/env python3
 import base64
 import json
+import os
 import socket
 import struct
 import sys
 import time
 
-HOST_CID = 2
-PORT = 4040
+HOST_CID = int(os.getenv("PEP_VSOCK_CID", "2"))
+PORT = int(os.getenv("PEP_VSOCK_PORT", "4040"))
 
 
 def read_frame(sock):
@@ -62,7 +63,10 @@ def main():
         raise RuntimeError(f"vsock request failed: {last_err}")
 
     if response.get("error"):
-        print("error:", response["error"])
+        error = response["error"]
+        code = error.get("code", "unknown_error")
+        message = error.get("message", "unknown error")
+        print(f"error: {code}: {message}")
         sys.exit(1)
 
     body_b64 = response.get("body_base64") or ""
