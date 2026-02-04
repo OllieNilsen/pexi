@@ -26,6 +26,9 @@ vm_node_fetch_dir = "spikes/vm-node-fetch"
 vm_node_fetch_proxy = "spikes/vm-node-fetch/fetch_proxy.js"
 vm_node_fetch_bootstrap = "spikes/vm-node-fetch/bootstrap.sh"
 
+[scripts]
+avf_runner_build = "pep-daemon/build_avf_runner.sh"
+
 [ci]
 # No CI yet. When you add GitHub Actions, flip provider and add workflow paths.
 provider = "none"
@@ -89,6 +92,12 @@ steps = [
 description = "Run the Node fetch proxy spike (manual stop)."
 steps = [
   ["node", "spikes/vm-node-fetch/fetch_proxy.js"]
+]
+
+[commands.avf_runner_build]
+description = "Compile and codesign the AVF Swift runner."
+steps = [
+  ["sh", "pep-daemon/build_avf_runner.sh"]
 ]
 
 [rust]

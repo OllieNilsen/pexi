@@ -66,6 +66,13 @@ Stop and request review *before* any of the following:
 
 ---
 
+## 1.3 AVF runner rule (required)
+The AVF runner **must** be a compiled and codesigned Swift binary. Do **not**
+invoke `swift avf_runner.swift` or treat a `.swift` file as an executable.
+Use `pep-daemon/build_avf_runner.sh` to compile and codesign the runner.
+
+---
+
 ## 2) “Types-first, tests-first” (repo doctrine)
 
 ### 2.1 Types-first (required)

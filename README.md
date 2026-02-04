@@ -49,6 +49,13 @@ cargo run --manifest-path "pep-daemon/Cargo.toml" -- boot-vm \
   --shared-dir /Users/on/p/pexi
 ```
 
+### Build the Swift runner (required)
+The AVF runner must be compiled and codesigned (do not run via the Swift
+interpreter).
+```
+sh pep-daemon/build_avf_runner.sh
+```
+
 ### Inside the VM
 ```
 /Users/on/p/pexi/spikes/vm-node-fetch/bootstrap.sh
