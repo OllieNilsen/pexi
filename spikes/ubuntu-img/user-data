@@ -1,0 +1,28 @@
+#cloud-config
+users:
+  - name: ubuntu
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, admin
+    shell: /bin/bash
+    lock_passwd: true
+ssh_pwauth: false
+bootcmd:
+  - sh -c 'echo "boothook-start $(date -Iseconds)" > /var/tmp/boot-ok.txt; if [ -f /etc/pexi-baked.txt ]; then echo "bake-marker $(cat /etc/pexi-baked.txt)" >> /var/tmp/boot-ok.txt; else echo "bake-marker missing" >> /var/tmp/boot-ok.txt; fi; if [ -f /usr/lib/aarch64-linux-gnu/libatomic.so.1 ]; then echo "libatomic present" >> /var/tmp/boot-ok.txt; else echo "libatomic missing" >> /var/tmp/boot-ok.txt; fi; echo "boothook-done $(date -Iseconds)" >> /var/tmp/boot-ok.txt'
+runcmd:
+  - echo "cloud-init-start $(date -Iseconds)" | tee /dev/console
+  - if [ -f /etc/pexi-baked.txt ]; then echo "bake-marker $(cat /etc/pexi-baked.txt)" | tee /dev/console; else echo "bake-marker missing" | tee /dev/console; fi
+  - if [ -f /usr/lib/aarch64-linux-gnu/libatomic.so.1 ]; then echo "libatomic present" | tee /dev/console; else echo "libatomic missing" | tee /dev/console; fi
+  - ls -lah /dev/disk/by-label | tee /dev/console || true
+  - mount | tee /dev/console
+  - df -h | tee /dev/console
+  - mkdir -p /workspace
+  - mount -t virtiofs workspace /workspace || true
+  - if ! mountpoint -q /workspace; then modprobe virtiofs || true; mount -t virtiofs workspace /workspace || true; fi
+  - mount | tee /dev/console
+  - df -h | tee /dev/console
+  - echo "cloud-init-after-mount $(date -Iseconds)" | tee /dev/console
+  - TARGET_DIR=$(mountpoint -q /workspace && echo /workspace || echo /var/tmp); echo "booted $(date -Iseconds)" > "$TARGET_DIR/boot-ok.txt"
+  - TARGET_DIR=$(mountpoint -q /workspace && echo /workspace || echo /var/tmp); dmesg | tail -n 200 > "$TARGET_DIR/boot-dmesg.txt"
+  - sleep 10
+  - if mountpoint -q /workspace; then echo "vsock-start $(date -Iseconds)" > /workspace/vsock-fetch.out; python3 /workspace/spikes/vm-node-fetch/vsock_fetch.py https://google.com >> /workspace/vsock-fetch.out 2>&1 || true; echo "vsock-done $(date -Iseconds)" >> /workspace/vsock-fetch.out; else echo "workspace-not-mounted" > /var/tmp/vsock-fetch.out; fi
+  - if mountpoint -q /workspace; then echo "cdp-intercept-start $(date -Iseconds)" > /workspace/cdp-intercept.out; if [ -f /etc/pexi-baked.txt ]; then echo "bake-marker $(cat /etc/pexi-baked.txt)" >> /workspace/cdp-intercept.out; else echo "bake-marker missing" >> /workspace/cdp-intercept.out; fi; if [ -f /usr/lib/aarch64-linux-gnu/libatomic.so.1 ]; then echo "libatomic present" >> /workspace/cdp-intercept.out; else echo "libatomic missing" >> /workspace/cdp-intercept.out; fi; export PATH="/workspace/spikes/ubuntu-img/node/bin:/usr/local/bin:$PATH"; export CHROMIUM_BIN="/usr/local/bin/chromium"; if ! command -v node >/dev/null 2>&1; then echo "node-missing" >> /workspace/cdp-intercept.out; fi; if [ ! -x "$CHROMIUM_BIN" ]; then echo "chromium-missing" >> /workspace/cdp-intercept.out; fi; if command -v node >/dev/null 2>&1 && [ -x "$CHROMIUM_BIN" ]; then export PEP_PROJECT_ROOT="/workspace" PEP_VSOCK_CID="2" PEP_VSOCK_PORT="4040" PEP_VSOCK_CLIENT="/workspace/pep-daemon/target/debug/avf-vsock-host" PEP_BROWSER_ALLOW_URLS="https://google.com" PEP_BROWSER_DENY_URL="https://youtube.com" && cd /workspace/spikes/cdp-intercept && npm run run >> /workspace/cdp-intercept.out 2>&1 || true; fi; echo "cdp-intercept-done $(date -Iseconds)" >> /workspace/cdp-intercept.out; else echo "workspace-not-mounted" > /var/tmp/cdp-intercept.out; fi

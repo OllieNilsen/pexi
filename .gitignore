@@ -46,7 +46,12 @@ out/
 *.cache
 
 # VM images / artifacts (spikes)
-spikes/ubuntu-img/
+spikes/ubuntu-img/*
+!spikes/ubuntu-img/bake_chromium_image.sh
+!spikes/ubuntu-img/user-data
+!spikes/ubuntu-img/meta-data
+!spikes/ubuntu-img/seed.img.dmg
+!spikes/ubuntu-img/jammy-arm64-chromium.raw
 spikes/**/target/
 spikes/**/.cargo/
 spikes/**/.next/
