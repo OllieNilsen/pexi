@@ -1,0 +1,50 @@
+# Learnings (Chromium-in-VM spike)
+
+## What is working
+- VM boots and writes host-visible logs again (`boot-ok.txt`, `cdp-intercept.out`, `pexi-boot.log`).
+- Chromium is baked into the Jammy image via Debian Bullseye ARM64 `.deb` packages.
+- The `pexi-boot` host-visible logging path is reliable (virtiofs `/workspace` + fallback).
+
+## Key fixes and changes
+- Added a host-visible boot runner:
+  - New `spikes/ubuntu-img/pexi-boot.sh` and `pexi-boot.service`.
+  - Added `rc.local` fallback to ensure it runs even if systemd units skip.
+  - Baked into the image and wired into both `multi-user.target` and `graphical.target`.
+- Bakes require running `virt-customize` under `sudo` on the Linux host, because `supermin`
+  needs to read `/boot/vmlinuz-*` (permission error without `sudo`).
+- For libguestfs: `LIBGUESTFS_BACKEND=direct` + temp/cache under `/var/tmp` is stable.
+- Cloud-init appears stuck at the Feb 4 run (logs do not advance), so relying on
+  `cloud-init` for logging is unreliable; `pexi-boot` is now the dependable path.
+
+## Missing Chromium runtime libs (deb11 ARM64 adds)
+These were added to `spikes/ubuntu-img/prepare_chromium_bundle.sh` as they appeared in
+`cdp-intercept.out` errors:
+- `libminizip1`
+- `libwoff1` (provides `libwoff2dec.so.1.0.2`)
+- `libxml2`
+- `libicu67`
+- `libopenjp2-7`
+- `libogg0`
+- `libsndfile1`
+- `libasyncns0`
+
+Debian package selection now prefers `deb11` variants when available to avoid glibc drift.
+
+## Observations from ldd
+- Running `ldd` against the bundle binary with
+  `LD_LIBRARY_PATH=/.../chromium/usr/lib/chromium:/.../chromium/usr/lib/aarch64-linux-gnu`
+  eventually reports **no missing libs** in the bundle.
+- The VM can still report missing libs if the image was not rebaked after bundle updates.
+
+## Current state (last run)
+- Latest VM logs still reported missing `libasyncns.so.0` from `cdp-intercept.out`.
+- The baked image does include `libasyncns.so.0` at
+  `/usr/lib/aarch64-linux-gnu/libasyncns.so.0`.
+- This indicates the VM was still booting an older baked image, or the logs were stale.
+
+## Next steps to continue
+1. Re-run `prepare_chromium_bundle.sh`, then `bake_chromium_image.sh` (sudo required).
+2. Regenerate `meta-data` instance-id and rebuild `seed.img.dmg`.
+3. Boot VM and confirm `cdp-intercept.out` shows the newest bake marker timestamp.
+4. If a new missing library appears, add its Debian package (deb11) and repeat.
+

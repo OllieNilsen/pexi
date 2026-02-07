@@ -1,0 +1,13 @@
+{
+  "name": "cdp-intercept",
+  "version": "1.0.0",
+  "description": "CDP interception spike for A2 (linux-arm64 friendly)",
+  "private": true,
+  "main": "run.js",
+  "scripts": {
+    "run": "node run.js"
+  },
+  "dependencies": {
+    "chrome-remote-interface": "^0.33.0"
+  }
+}

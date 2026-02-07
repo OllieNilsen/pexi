@@ -238,14 +238,14 @@ config.cpuCount = args.cpus
 config.memorySize = args.memoryBytes
 
 var storageDevices: [VZStorageDeviceConfiguration] = []
-let diskAttachment = try VZDiskImageStorageDeviceAttachment(url: args.disk, readOnly: false)
-let diskDevice = VZVirtioBlockDeviceConfiguration(attachment: diskAttachment)
-storageDevices.append(diskDevice)
 if let seed = args.seed {
     let seedAttachment = try VZDiskImageStorageDeviceAttachment(url: seed, readOnly: true)
     let seedDevice = VZVirtioBlockDeviceConfiguration(attachment: seedAttachment)
     storageDevices.append(seedDevice)
 }
+let diskAttachment = try VZDiskImageStorageDeviceAttachment(url: args.disk, readOnly: false)
+let diskDevice = VZVirtioBlockDeviceConfiguration(attachment: diskAttachment)
+storageDevices.append(diskDevice)
 config.storageDevices = storageDevices
 
 let entropyDevice = VZVirtioEntropyDeviceConfiguration()

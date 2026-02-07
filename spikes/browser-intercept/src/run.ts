@@ -1,5 +1,5 @@
 import { spawnSync } from "node:child_process";
-import { chromium, Route, Request } from "playwright";
+import { chromium, firefox, webkit, Route, Request, BrowserType } from "playwright";
 
 type PepResponse = {
   status: number;
@@ -23,6 +23,7 @@ const ALLOW_URLS = (process.env.PEP_BROWSER_ALLOW_URLS || "https://example.com")
   .map((entry) => entry.trim())
   .filter(Boolean);
 const DENY_URL = process.env.PEP_BROWSER_DENY_URL || "";
+const ENGINE = (process.env.PEP_BROWSER_ENGINE || "chromium").toLowerCase();
 
 function isPassthroughScheme(url: string): boolean {
   return (
@@ -143,7 +144,19 @@ async function handleRoute(route: Route, request: Request): Promise<void> {
 }
 
 async function main(): Promise<void> {
-  const browser = await chromium.launch({ headless: true });
+  let browserType: BrowserType;
+  switch (ENGINE) {
+    case "firefox":
+      browserType = firefox;
+      break;
+    case "webkit":
+      browserType = webkit;
+      break;
+    default:
+      browserType = chromium;
+      break;
+  }
+  const browser = await browserType.launch({ headless: true });
   const context = await browser.newContext({ acceptDownloads: true });
   await context.route("**/*", (route, request) => {
     handleRoute(route, request).catch((err) => {
