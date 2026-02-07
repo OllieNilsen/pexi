@@ -51,7 +51,6 @@ spikes/ubuntu-img/*
 !spikes/ubuntu-img/user-data
 !spikes/ubuntu-img/meta-data
 !spikes/ubuntu-img/seed.img.dmg
-!spikes/ubuntu-img/jammy-arm64-chromium.raw
 spikes/**/target/
 spikes/**/.cargo/
 spikes/**/.next/
@@ -61,4 +60,6 @@ spikes/**/.DS_Store
 
 # Local run outputs
 boot-*.txt
-vsock-fetch.out
+*.out
+audit.jsonl
+data.tar.xz
