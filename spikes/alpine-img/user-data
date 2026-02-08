@@ -1,0 +1,32 @@
+#cloud-config
+users:
+  - name: alpine
+    sudo: ALL=(ALL) NOPASSWD:ALL
+    groups: users, wheel
+    shell: /bin/ash
+    lock_passwd: true
+ssh_pwauth: false
+bootcmd:
+  - echo "boothook-start $(date -Iseconds)" > /var/tmp/boot-ok.txt
+runcmd:
+  - echo "cloud-init-start $(date -Iseconds)" | tee /dev/console
+  - cat /etc/alpine-release | tee /dev/console
+  - mkdir -p /workspace
+  - mount -t virtiofs workspace /workspace || true
+  - if ! mountpoint -q /workspace; then modprobe virtiofs 2>/dev/null || true; mount -t virtiofs workspace /workspace || true; fi
+  - echo "cloud-init-after-mount $(date -Iseconds)" | tee /dev/console
+  - mkdir -p /var/lib/pexi
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; echo "booted $(date -Iseconds)" > "$TARGET_DIR/boot-ok.txt"; cat /etc/alpine-release >> "$TARGET_DIR/boot-ok.txt"; uname -a >> "$TARGET_DIR/boot-ok.txt"
+  # Diagnostics
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; which node >> "$TARGET_DIR/boot-ok.txt" 2>&1; node --version >> "$TARGET_DIR/boot-ok.txt" 2>&1; which firefox >> "$TARGET_DIR/boot-ok.txt" 2>&1; which socat >> "$TARGET_DIR/boot-ok.txt" 2>&1; ldd /usr/bin/node >> "$TARGET_DIR/boot-ok.txt" 2>&1 || true
+  # Start socat vsock-to-TCP bridge (VM vsock CID 2 port 5000 -> local TCP 4040)
+  - echo "starting-socat $(date -Iseconds)" | tee /dev/console
+  - /usr/bin/socat TCP-LISTEN:4040,fork,reuseaddr VSOCK-CONNECT:2:5000 &
+  # Start Firefox headless
+  - echo "starting-firefox $(date -Iseconds)" | tee /dev/console
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; MOZ_HEADLESS=1 /usr/bin/firefox --headless --remote-debugging-port=9222 --no-remote --disable-gpu --user-data-dir=/tmp/fx-profile > "$TARGET_DIR/firefox.log" 2>&1 &
+  # Run intercept test with full path to node
+  - echo "running-intercept $(date -Iseconds)" | tee /dev/console
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; cd /workspace/intercept-test && /usr/bin/node test.mjs > "$TARGET_DIR/intercept-test.log" 2>&1; echo "intercept-exit=$?" | tee /dev/console
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; dmesg | tail -n 200 > "$TARGET_DIR/boot-dmesg.txt"
+  - echo "boot-done $(date -Iseconds)" | tee /dev/console

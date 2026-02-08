@@ -63,3 +63,16 @@ boot-*.txt
 *.out
 audit.jsonl
 data.tar.xz
+
+# Alpine VM images / artifacts
+spikes/alpine-img/*.raw
+spikes/alpine-img/*.vhd
+spikes/alpine-img/*.img
+spikes/alpine-img/*.fd
+spikes/alpine-img/vmlinuz-virt
+spikes/alpine-img/initramfs-virt
+spikes/alpine-img/console.log
+spikes/alpine-img/workspace/*.txt
+spikes/alpine-img/workspace/*.log
+spikes/alpine-img/workspace/*.jsonl
+spikes/alpine-img/workspace/*.json

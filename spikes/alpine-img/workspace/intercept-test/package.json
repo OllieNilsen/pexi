@@ -1,0 +1,9 @@
+{
+  "name": "intercept-test",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "dependencies": {
+    "puppeteer-core": "^24.2.0"
+  }
+}
