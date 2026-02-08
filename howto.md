@@ -602,6 +602,36 @@ Missing a parent domain (`wikimedia.org`) causes `denied_by_policy` for resource
 
 The largest individual resource was a 688KB GIF. No single Wikipedia asset hit the 10MB default cap. To test `constraint_violation`, target a site with large individual assets (high-res images, video thumbnails, large JS bundles >10MB).
 
+## 14b. Modern Site + DOM Interaction (A3 Learnings)
+
+### Two sites load successfully via interception
+
+| Site | Requests | Successful | Denied | Total MB | p95 latency |
+|------|----------|------------|--------|----------|-------------|
+| MDN (`developer.mozilla.org`) | 66 | 63 | 3 | 0.36 | 339ms |
+| Wikipedia (`en.wikipedia.org/wiki/Earth`) | 165 | 165 | 0 | 4.32 | 1,923ms |
+
+MDN is fast (all assets served from `developer.mozilla.org`, no CDN subdomains needed). The 3 denials were telemetry (`incoming.telemetry.mozilla.org`) and analytics (`www.googletagmanager.com`) — both correctly blocked.
+
+### DOM interaction works end-to-end
+
+Two interactions were verified on Wikipedia:
+
+1. **JS scroll**: `document.getElementById('Physical_characteristics').scrollIntoView()` — scrolled from Y=0 to Y=13095. Proves JavaScript execution works in the intercepted page.
+2. **Click navigation**: Clicked an internal wiki link (`/wiki/Earth_(disambiguation)`). Page title changed from "Earth - Wikipedia" to "Earth (disambiguation) - Wikipedia". Proves click events fire and trigger full page navigation through the interception chain.
+
+### `page.url()` doesn't reflect hash changes in WebDriver BiDi
+
+When using Puppeteer's WebDriver BiDi protocol, `page.url()` does not update after fragment-only navigations (e.g., clicking `#section`). Use `page.evaluate(() => window.location.hash)` or verify scroll position instead.
+
+### MDN requires no extra CDN domains
+
+Unlike Wikipedia which uses `upload.wikimedia.org` for images, MDN serves all static assets (fonts, JS, CSS) from `developer.mozilla.org` directly. Only `developer.mozilla.org` is needed in the allowlist.
+
+### Alpine `sleep` in cloud-init
+
+Alpine's `ash` shell occasionally emits `sleep: Bad message` when `sleep` is used in cloud-init runcmd. This is harmless — the sleep still works. It appears to be a BusyBox `sleep` quirk when run under cloud-init's script runner.
+
 ---
 
 ## 15. Operational Checklist
@@ -635,6 +665,7 @@ After image modifications:
 | `spikes/alpine-img/workspace/` | Virtiofs shared directory |
 | `spikes/alpine-img/workspace/intercept-test/test.mjs` | Puppeteer intercept test (A2) |
 | `spikes/alpine-img/workspace/intercept-test/a25-limits.mjs` | Buffered fulfill limits test (A2.5) |
+| `spikes/alpine-img/workspace/intercept-test/a3-modern.mjs` | Modern site + DOM interaction test (A3) |
 | `spikes/browser-intercept/src/run.ts` | Playwright browser intercept spike |
 | `spikes/cdp-intercept/run.js` | Raw CDP intercept spike |
 | `spikes/cdp-intercept/vsock_pep.py` | Python vsock helper |

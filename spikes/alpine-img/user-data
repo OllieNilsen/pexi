@@ -35,5 +35,12 @@ runcmd:
   # A2.5: Buffered fulfill limits spike (asset-heavy site)
   - echo "running-a25 $(date -Iseconds)" | tee /dev/console
   - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; cd /workspace/intercept-test && /usr/bin/node a25-limits.mjs > "$TARGET_DIR/a25-test.log" 2>&1; echo "a25-exit=$?" | tee /dev/console
+  # Restart Firefox for A3 (browser.close() in a25 shuts it down)
+  - echo "restarting-firefox-a3 $(date -Iseconds)" | tee /dev/console
+  - pkill -f firefox 2>/dev/null || true; sleep 1
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; MOZ_HEADLESS=1 /usr/bin/firefox --headless --remote-debugging-port=9222 --no-remote --disable-gpu --user-data-dir=/tmp/fx-profile3 > "$TARGET_DIR/firefox-a3.log" 2>&1 &
+  # A3: Modern site + performance spike (2 sites + DOM interaction)
+  - echo "running-a3 $(date -Iseconds)" | tee /dev/console
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; cd /workspace/intercept-test && /usr/bin/node a3-modern.mjs > "$TARGET_DIR/a3-test.log" 2>&1; echo "a3-exit=$?" | tee /dev/console
   - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; dmesg | tail -n 200 > "$TARGET_DIR/boot-dmesg.txt"
   - echo "boot-done $(date -Iseconds)" | tee /dev/console
