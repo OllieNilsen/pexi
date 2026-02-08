@@ -28,5 +28,12 @@ runcmd:
   # Run intercept test with full path to node
   - echo "running-intercept $(date -Iseconds)" | tee /dev/console
   - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; cd /workspace/intercept-test && /usr/bin/node test.mjs > "$TARGET_DIR/intercept-test.log" 2>&1; echo "intercept-exit=$?" | tee /dev/console
+  # Restart Firefox for A2.5 (browser.close() in test.mjs shuts it down)
+  - echo "restarting-firefox $(date -Iseconds)" | tee /dev/console
+  - pkill -f firefox 2>/dev/null || true; sleep 1
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; MOZ_HEADLESS=1 /usr/bin/firefox --headless --remote-debugging-port=9222 --no-remote --disable-gpu --user-data-dir=/tmp/fx-profile2 > "$TARGET_DIR/firefox-a25.log" 2>&1 &
+  # A2.5: Buffered fulfill limits spike (asset-heavy site)
+  - echo "running-a25 $(date -Iseconds)" | tee /dev/console
+  - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; cd /workspace/intercept-test && /usr/bin/node a25-limits.mjs > "$TARGET_DIR/a25-test.log" 2>&1; echo "a25-exit=$?" | tee /dev/console
   - TARGET_DIR="$(mountpoint -q /workspace && echo /workspace || echo /var/lib/pexi)"; dmesg | tail -n 200 > "$TARGET_DIR/boot-dmesg.txt"
   - echo "boot-done $(date -Iseconds)" | tee /dev/console

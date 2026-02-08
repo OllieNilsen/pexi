@@ -561,7 +561,50 @@ Ubuntu was used for initial spikes but suffered from:
 
 ---
 
-## 14. Operational Checklist
+## 14. Browser Interception at Scale (A2.5 Learnings)
+
+### Firefox restart between sequential tests
+
+`browser.close()` in Puppeteer shuts down the Firefox process entirely. If running multiple test scripts sequentially via cloud-init, restart Firefox between them with a **fresh `--user-data-dir`** to avoid profile lock conflicts:
+
+```bash
+pkill -f firefox || true; sleep 1
+MOZ_HEADLESS=1 firefox --headless --remote-debugging-port=9222 \
+  --no-remote --disable-gpu --user-data-dir=/tmp/fx-profile2 &
+```
+
+### Buffered fulfill performance baseline
+
+Loading Wikipedia's "Earth" article (~4.3MB, 139 requests) through the PEP interception chain:
+
+| Metric | Value |
+|--------|-------|
+| Total bytes | 4.27 MB |
+| Requests (successful / denied) | 135 / 4 |
+| Per-request latency (median) | ~1,100ms |
+| Per-request latency (p95) | ~2,000ms |
+| Node.js RSS | 99 MB |
+| Node.js heap used | 25 MB |
+
+Memory is well-controlled at this scale. The per-request latency is dominated by the sequential blocking PEP daemon (one request at a time per TCP connection). This is acceptable for a spike but will need concurrency in production.
+
+### Allowlist subdomain coverage
+
+Wikipedia uses several domains for assets. You need all of them:
+- `en.wikipedia.org` — page HTML and JS bundles
+- `upload.wikimedia.org` — images and media
+- `wikimedia.org` — math renders (`/api/rest_v1/media/math/...`)
+- `meta.wikimedia.org` — banner/campaign scripts (optional)
+
+Missing a parent domain (`wikimedia.org`) causes `denied_by_policy` for resources like math SVG renders. The PEP's subdomain matching (`upload.wikimedia.org` matches an allowlist entry of `wikimedia.org`) means adding the parent domain covers all subdomains.
+
+### No size-cap violations at this scale
+
+The largest individual resource was a 688KB GIF. No single Wikipedia asset hit the 10MB default cap. To test `constraint_violation`, target a site with large individual assets (high-res images, video thumbnails, large JS bundles >10MB).
+
+---
+
+## 15. Operational Checklist
 
 Before every VM boot:
 1. Kill orphaned `avf_runner` and `com.apple.Virtualization` processes.
@@ -577,7 +620,7 @@ After image modifications:
 
 ---
 
-## 15. File Inventory
+## 16. File Inventory
 
 | File | Purpose |
 |------|---------|
@@ -590,7 +633,8 @@ After image modifications:
 | `spikes/alpine-img/user-data` | Cloud-init user config |
 | `spikes/alpine-img/meta-data` | Cloud-init instance metadata |
 | `spikes/alpine-img/workspace/` | Virtiofs shared directory |
-| `spikes/alpine-img/workspace/intercept-test/test.mjs` | Puppeteer intercept test |
+| `spikes/alpine-img/workspace/intercept-test/test.mjs` | Puppeteer intercept test (A2) |
+| `spikes/alpine-img/workspace/intercept-test/a25-limits.mjs` | Buffered fulfill limits test (A2.5) |
 | `spikes/browser-intercept/src/run.ts` | Playwright browser intercept spike |
 | `spikes/cdp-intercept/run.js` | Raw CDP intercept spike |
 | `spikes/cdp-intercept/vsock_pep.py` | Python vsock helper |
