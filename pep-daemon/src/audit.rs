@@ -1,4 +1,5 @@
 use crate::config::PepConfig;
+use crate::policy::PolicyDecision;
 use crate::types::HttpRequest;
 use serde::Serialize;
 use std::fs::OpenOptions;
@@ -16,6 +17,10 @@ pub struct AuditEntry {
     pub response_bytes: usize,
     pub redirects: u32,
     pub decision: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub policy_hash: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub decision_id: Option<String>,
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -28,6 +33,7 @@ pub fn append_audit_entry(
     request_bytes: usize,
     response_bytes: usize,
     redirects: u32,
+    policy_decision: Option<&PolicyDecision>,
 ) {
     let ts_unix_ms = SystemTime::now()
         .duration_since(UNIX_EPOCH)
@@ -50,6 +56,8 @@ pub fn append_audit_entry(
         response_bytes,
         redirects,
         decision,
+        policy_hash: policy_decision.map(|d| d.policy_hash.clone()),
+        decision_id: policy_decision.map(|d| d.decision_id.clone()),
     };
 
     if let Ok(line) = serde_json::to_string(&entry)

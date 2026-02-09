@@ -1,0 +1,8 @@
+{
+  "config": {
+    "allowed_domains": [],
+    "constraints": {
+      "max_bytes": 10485760
+    }
+  }
+}

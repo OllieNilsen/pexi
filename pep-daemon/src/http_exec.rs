@@ -7,14 +7,17 @@ use std::io::Read;
 
 use crate::audit::append_audit_entry;
 use crate::config::PepConfig;
-use crate::ssrf::{ensure_public_host, is_host_allowed, is_scheme_allowed};
+use crate::policy::{PolicyEvaluator, PolicyInput};
+use crate::ssrf::{ensure_public_host, is_scheme_allowed};
 use crate::types::{HttpRequest, HttpResponse, PepError, error_response};
 
 pub fn execute_request(
     client: &Client,
     request: HttpRequest,
     config: &PepConfig,
+    evaluator: &dyn PolicyEvaluator,
 ) -> Result<HttpResponse, PepError> {
+    // ── Parse method ────────────────────────────────────────────────
     let method: Method = match request.method.parse() {
         Ok(method) => method,
         Err(_) => {
@@ -28,10 +31,13 @@ pub fn execute_request(
                 0,
                 0,
                 0,
+                None,
             );
             return Ok(response);
         }
     };
+
+    // ── Parse URL ───────────────────────────────────────────────────
     let mut url = match Url::parse(&request.url) {
         Ok(parsed) => parsed,
         Err(err) => {
@@ -45,11 +51,13 @@ pub fn execute_request(
                 0,
                 0,
                 0,
+                None,
             );
             return Ok(response);
         }
     };
 
+    // ── Scheme check (defense in depth — always runs) ───────────────
     if !is_scheme_allowed(url.scheme()) {
         let response = error_response("invalid_url", "unsupported URL scheme");
         append_audit_entry(
@@ -61,43 +69,33 @@ pub fn execute_request(
             0,
             0,
             0,
+            None,
         );
         return Ok(response);
     }
 
-    let host = match url.host_str() {
-        Some(host) => host.to_lowercase(),
-        None => {
-            let response = error_response("invalid_url", "missing host");
-            append_audit_entry(
-                config,
-                &request,
-                sanitize_url(&url),
-                0,
-                Some("invalid_url"),
-                0,
-                0,
-                0,
-            );
-            return Ok(response);
-        }
-    };
+    // ── Policy evaluation ───────────────────────────────────────────
+    let policy_input = PolicyInput::from_http_url(&url, method.as_str());
+    let decision = evaluator.evaluate(&policy_input)?;
 
-    if !is_host_allowed(&host, &config.allowed_domains) {
-        let response = error_response("denied_by_policy", "domain not allowlisted");
+    if !decision.allow {
+        let reason = decision.reason.as_deref().unwrap_or("denied by policy");
+        let response = error_response("DENIED_BY_POLICY", reason);
         append_audit_entry(
             config,
             &request,
             sanitize_url(&url),
             0,
-            Some("denied_by_policy"),
+            Some("DENIED_BY_POLICY"),
             0,
             0,
             0,
+            Some(&decision),
         );
         return Ok(response);
     }
 
+    // ── SSRF guard (defense in depth — always runs) ─────────────────
     if let Err(err) = ensure_public_host(&url) {
         let response = error_response("ssrf_blocked", &err);
         append_audit_entry(
@@ -109,10 +107,12 @@ pub fn execute_request(
             0,
             0,
             0,
+            Some(&decision),
         );
         return Ok(response);
     }
 
+    // ── Decode request body ─────────────────────────────────────────
     let body_bytes = if let Some(body_base64) = request.body_base64.as_ref() {
         let body = match BASE64.decode(body_base64.as_str()) {
             Ok(body) => body,
@@ -127,6 +127,7 @@ pub fn execute_request(
                     0,
                     0,
                     0,
+                    Some(&decision),
                 );
                 return Ok(response);
             }
@@ -142,6 +143,7 @@ pub fn execute_request(
                 0,
                 0,
                 0,
+                Some(&decision),
             );
             return Ok(response);
         }
@@ -151,6 +153,14 @@ pub fn execute_request(
     };
     let request_bytes = body_bytes.as_ref().map(|body| body.len()).unwrap_or(0);
 
+    // ── Response size cap (prefer policy constraint over config) ─────
+    let max_response = decision
+        .constraints
+        .as_ref()
+        .and_then(|c| c.max_bytes)
+        .unwrap_or(config.max_response_bytes);
+
+    // ── Execute with redirect handling ──────────────────────────────
     let mut redirects = 0;
     loop {
         let mut builder = client.request(method.clone(), url.clone());
@@ -174,6 +184,7 @@ pub fn execute_request(
                     request_bytes,
                     0,
                     redirects,
+                    Some(&decision),
                 );
                 return Ok(error);
             }
@@ -191,6 +202,7 @@ pub fn execute_request(
                     request_bytes,
                     0,
                     redirects,
+                    Some(&decision),
                 );
                 return Ok(error);
             }
@@ -208,6 +220,7 @@ pub fn execute_request(
                         request_bytes,
                         0,
                         redirects,
+                        Some(&decision),
                     );
                     return Ok(error);
                 }
@@ -226,6 +239,7 @@ pub fn execute_request(
                         request_bytes,
                         0,
                         redirects,
+                        Some(&decision),
                     );
                     return Ok(error);
                 }
@@ -242,30 +256,20 @@ pub fn execute_request(
                     request_bytes,
                     0,
                     redirects,
+                    Some(&decision),
                 );
                 return Ok(error);
             }
 
-            let next_host = match next_url.host_str() {
-                Some(host) => host.to_lowercase(),
-                None => {
-                    let error = error_response("redirect_blocked", "redirect missing host");
-                    append_audit_entry(
-                        config,
-                        &request,
-                        sanitize_url(&url),
-                        response.status().as_u16(),
-                        Some("redirect_blocked"),
-                        request_bytes,
-                        0,
-                        redirects,
-                    );
-                    return Ok(error);
-                }
-            };
-
-            if !is_host_allowed(&next_host, &config.allowed_domains) {
-                let error = error_response("redirect_blocked", "redirect domain not allowlisted");
+            // Re-evaluate policy for the redirect target.
+            let redirect_input = PolicyInput::from_http_url(&next_url, method.as_str());
+            let redirect_decision = evaluator.evaluate(&redirect_input)?;
+            if !redirect_decision.allow {
+                let reason = redirect_decision
+                    .reason
+                    .as_deref()
+                    .unwrap_or("redirect domain denied by policy");
+                let error = error_response("redirect_blocked", reason);
                 append_audit_entry(
                     config,
                     &request,
@@ -275,10 +279,12 @@ pub fn execute_request(
                     request_bytes,
                     0,
                     redirects,
+                    Some(&redirect_decision),
                 );
                 return Ok(error);
             }
 
+            // SSRF guard on redirect target.
             if let Err(err) = ensure_public_host(&next_url) {
                 let error = error_response("ssrf_blocked", &err);
                 append_audit_entry(
@@ -290,6 +296,7 @@ pub fn execute_request(
                     request_bytes,
                     0,
                     redirects,
+                    Some(&decision),
                 );
                 return Ok(error);
             }
@@ -299,6 +306,7 @@ pub fn execute_request(
             continue;
         }
 
+        // ── Success path ────────────────────────────────────────────
         let status = response.status().as_u16();
         let headers = response
             .headers()
@@ -306,7 +314,7 @@ pub fn execute_request(
             .map(|(k, v)| (k.to_string(), v.to_str().unwrap_or_default().to_string()))
             .collect::<Vec<_>>();
 
-        let body = match read_body_with_cap(response, config.max_response_bytes) {
+        let body = match read_body_with_cap(response, max_response) {
             Ok(bytes) => bytes,
             Err(err) => {
                 let error = error_response("constraint_violation", &err);
@@ -319,6 +327,7 @@ pub fn execute_request(
                     request_bytes,
                     0,
                     redirects,
+                    Some(&decision),
                 );
                 return Ok(error);
             }
@@ -333,6 +342,7 @@ pub fn execute_request(
             request_bytes,
             body.len(),
             redirects,
+            Some(&decision),
         );
 
         return Ok(HttpResponse {

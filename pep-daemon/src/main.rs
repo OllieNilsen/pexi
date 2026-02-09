@@ -3,6 +3,7 @@ mod config;
 mod framing;
 mod health;
 mod http_exec;
+mod policy;
 mod ssrf;
 mod types;
 
@@ -22,6 +23,7 @@ use config::PepConfig;
 use framing::{read_frame, write_frame};
 use health::health_check;
 use http_exec::execute_request;
+use policy::{NullEvaluator, PolicyEvaluator, RegorusEvaluator};
 use types::{HttpRequest, HttpResponse, PepError};
 
 #[derive(Debug, Parser)]
@@ -157,6 +159,21 @@ fn main() -> Result<(), PepError> {
 
 // ── Stub server ──────────────────────────────────────────────────────────
 
+fn build_evaluator(config: &PepConfig) -> Result<Box<dyn PolicyEvaluator>, PepError> {
+    if let Some(dir) = &config.policy_dir {
+        eprintln!("loading OPA policies from {}", dir.display());
+        let eval = RegorusEvaluator::from_dir(dir)?;
+        eprintln!("policy hash: {}", eval.policy_hash());
+        Ok(Box::new(eval))
+    } else {
+        eprintln!(
+            "no PEP_POLICY_DIR set; using static allowlist ({} domains)",
+            config.allowed_domains.len(),
+        );
+        Ok(Box::new(NullEvaluator::new(config.allowed_domains.clone())))
+    }
+}
+
 fn run_stub(
     _cid: u32,
     port: u32,
@@ -169,11 +186,11 @@ fn run_stub(
         .redirect(reqwest::redirect::Policy::none())
         .build()?;
     let config = PepConfig::from_env();
+    let evaluator = build_evaluator(&config)?;
 
     eprintln!(
-        "pep-daemon v{} starting (allowed_domains={}, max_response={})",
+        "pep-daemon v{} starting (max_response={})",
         env!("CARGO_PKG_VERSION"),
-        config.allowed_domains.len(),
         config.max_response_bytes,
     );
 
@@ -184,7 +201,7 @@ fn run_stub(
         eprintln!("tcp stub listening on {addr} (macOS; vsock forwarded by AVF)");
         for conn in listener.incoming() {
             let mut stream = conn?;
-            if let Err(err) = handle_connection(&mut stream, &client, &config) {
+            if let Err(err) = handle_connection(&mut stream, &client, &config, evaluator.as_ref()) {
                 eprintln!("connection error: {err}");
             }
         }
@@ -197,7 +214,7 @@ fn run_stub(
         eprintln!("vsock stub listening on cid={_cid} port={port}");
         for conn in listener.incoming() {
             let mut stream = conn?;
-            if let Err(err) = handle_connection(&mut stream, &client, &config) {
+            if let Err(err) = handle_connection(&mut stream, &client, &config, evaluator.as_ref()) {
                 eprintln!("connection error: {err}");
             }
         }
@@ -209,6 +226,7 @@ fn handle_connection<S: Read + Write>(
     stream: &mut S,
     client: &reqwest::blocking::Client,
     config: &PepConfig,
+    evaluator: &dyn PolicyEvaluator,
 ) -> Result<(), PepError> {
     loop {
         let request_frame = match read_frame(stream) {
@@ -226,7 +244,7 @@ fn handle_connection<S: Read + Write>(
             continue;
         }
 
-        let response = execute_request(client, request, config)?;
+        let response = execute_request(client, request, config, evaluator)?;
         let response_bytes = serde_json::to_vec(&response)?;
         write_frame(stream, &response_bytes)?;
     }

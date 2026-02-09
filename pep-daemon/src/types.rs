@@ -32,6 +32,8 @@ pub enum PepError {
     Json(#[from] serde_json::Error),
     #[error("http error: {0}")]
     Http(#[from] reqwest::Error),
+    #[error("policy error: {0}")]
+    Policy(String),
 }
 
 pub fn error_response(code: &str, message: &str) -> HttpResponse {

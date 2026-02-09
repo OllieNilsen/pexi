@@ -8,6 +8,7 @@ pub struct PepConfig {
     pub max_response_bytes: usize,
     pub max_redirects: u32,
     pub audit_log_path: PathBuf,
+    pub policy_dir: Option<PathBuf>,
 }
 
 impl PepConfig {
@@ -41,12 +42,15 @@ impl PepConfig {
             .map(PathBuf::from)
             .unwrap_or_else(|_| PathBuf::from("audit.jsonl"));
 
+        let policy_dir = env::var("PEP_POLICY_DIR").ok().map(PathBuf::from);
+
         Self {
             allowed_domains,
             max_request_bytes,
             max_response_bytes,
             max_redirects,
             audit_log_path,
+            policy_dir,
         }
     }
 }
